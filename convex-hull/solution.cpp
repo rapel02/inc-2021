@@ -1,142 +1,128 @@
 #include <bits/stdc++.h>
-
 using namespace std;
 
-typedef long long LD;
+typedef long long ll;
 
-inline bool eq(LD x, LD y) { return x == y; }
-inline bool le(LD x, LD y) { return x <= y; }
-inline bool lt(LD x, LD y) { return x < y; }
-inline int sign(LD x) { return eq(x, 0) ? 0 : (x < 0 ? -1 : 1); }
+const int N = 1e5;
 
 struct point {
-  LD x, y;
-  int id;
-  point(LD _x = 0, LD _y = 0, int _id = -1) : x(_x), y(_y), id(_id) {}
-  point operator+(point p) { return point(x+p.x, y+p.y); }
-  point operator-(point p) { return point(x-p.x, y-p.y); }
-  point operator*(LD s) { return point(x * s, y * s); }
-  point operator/(LD s) { return point(x / s, y / s); }
-  LD operator*(point p) { return x * p.x + y * p.y; }
-  LD operator%(point p) { return x * p.y - y * p.x; }
-  LD norm2() { return *this * *this; }
-  bool operator<(point p) const { return eq(y, p.y) ? x < p.x : y < p.y; }
-  bool operator==(point p) { return eq(x, p.x) && eq(y, p.y); }
+    ll x, y;
+    int idx;
 };
 
-ostream& operator<<(ostream & os, point p) {
-  return os << "(" << p.x << ", " << p.y << ")";
+vector<point> points;
+vector<point> hull;
+
+int mapping[N + 5];
+int result[N + 5];
+bool in_ch[N + 5];
+
+ll cross(point &a, point &b, point &c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
-// 1 : ccw, -1 : cw, 0 : colinear
-int ccw(point a, point b, point c) {
-  return sign((b-a) % (c-b));
+ll dist(point &a, point &b) {
+    ll dx = a.x - b.x;
+    ll dy = a.y - b.y;
+    return dx * dx + dy * dy;
 }
 
-vector<point> convex_hull(vector<point>& vp) {
-  int pos = min_element(vp.begin(), vp.end()) - vp.begin();
-  swap(vp[pos], vp[0]);
-  point pivot = vp[0];
-  sort(vp.begin() + 1, vp.end(), [&](point lhs, point rhs) {
-    int res = ccw(pivot, lhs, rhs);
-    if (res != 0)
-      return res > 0;
-    return (lhs - pivot).norm2() < (rhs - pivot).norm2();
-  });
-  int last = (int)vp.size()-1;
-  while (last > 0 && ccw(vp[0], vp.back(), vp[last]) == 0) {
-    --last;
-  }
-  reverse(vp.begin() + last + 1, vp.end());
-  vector<point> hull;
-  for (point& p : vp) {
-    int sz;
-    while ((sz = hull.size()) >= 2 && ccw(hull[sz-2], hull[sz-1], p) < 0) {
-      hull.pop_back();
+bool cmp(point &a, point &b) {
+    ll cr = cross(points[0], a, b);
+    if (cr > 0)
+        return true;
+    else if (cr == 0) {
+        return dist(points[0], a) < dist(points[0], b);
     }
-    hull.push_back(p);
-  }
-  return hull;
+    return false;
+}
+
+void constructHull(int n) {
+    int cur = 0;
+    for (int i = 1; i < n; i++) {
+        if (points[i].x < points[cur].x)
+            cur = i;
+        else if (points[i].x == points[cur].x) {
+            if (points[i].y < points[cur].y) cur = i;
+        }
+    }
+    swap(points[0], points[cur]);
+    sort(points.begin() + 1, points.begin() + n, cmp);
+
+    int it = n - 2;
+    while (it >= 0 && cross(points[0], points[n - 1], points[it]) == 0) it--;
+    reverse(points.begin() + it + 1, points.begin() + n);
+
+    hull.clear();
+
+    hull.push_back(points[0]);
+    for (int i = 1; i < n; i++) {
+        while (hull.size() >= 2 &&
+               cross(hull[hull.size() - 2], hull[hull.size() - 1], points[i]) < 0) {
+            hull.pop_back();
+        }
+        hull.push_back(points[i]);
+    }
 }
 
 int main() {
-  int n;
-  scanf("%d", &n);
-  vector<point> vp(n);
-  for (int i = 0; i < n; ++i) {
-    int x, y;
-    scanf("%d %d", &x, &y);
-    vp[i] = point(x, y, i);
-  }
-  vector<point> hull = convex_hull(vp);
-  vector<int> ans(n, hull.size());
-  vector<point> inside;
-  vector<int> pos;
-  for (int i = 0, j = 0; i < n; ++i) {
-    if (j < (int)hull.size() && hull[j] == vp[i]) {
-      --ans[vp[i].id];
-      pos.push_back(i);
-      ++j;
-    } else {
-      inside.push_back(vp[i]);
+    ios::sync_with_stdio(0), cin.tie(0), cout.tie(0);
+#define endl '\n'
+    int n;
+    cin >> n;
+    for (int i = 0; i < n; i++) {
+        ll x, y;
+        cin >> x >> y;
+        points.push_back({x, y, i});
     }
-  }
-  if (!inside.empty()) {
-    auto more_right = [](point& p, point& oldp, point& newp) {
-      int res = ccw(p, oldp, newp);
-      return (res < 0) || (res == 0 && (oldp - p).norm2() > (newp - p).norm2());
-    };
-    auto more_left = [](point& p, point& oldp, point& newp) {
-      int res = ccw(p, oldp, newp);
-      return (res > 0) || (res == 0 && (oldp - p).norm2() > (newp - p).norm2());
-    };
-    vector<point> inhull = convex_hull(inside);
-    vector<int> leftangent(hull.size()), rigtangent(hull.size());
-    leftangent[0] = rigtangent[0] = 0;
-    for (int i = 1; i < (int)inhull.size(); ++i) {
-      if (more_right(hull[0], inhull[rigtangent[0]], inhull[i])) {
-        rigtangent[0] = i;
-      }
-      if (more_left(hull[0], inhull[leftangent[0]], inhull[i])) {
-        leftangent[0] = i;
-      }
+
+    constructHull(n);
+    for (int i = 0; i < n; i++) mapping[points[i].idx] = i;
+    for (int i = 0; i < hull.size(); i++) {
+        in_ch[hull[i].idx] = true;
     }
-    auto nxt = [&](int j) {
-      return j+1 < (int)inhull.size() ? j + 1 : 0;
-    };
-    for (int i = 1; i < (int)hull.size(); ++i) {
-      int j = rigtangent[i-1];
-      while (more_right(hull[i], inhull[j], inhull[nxt(j)])) {
-        j = nxt(j);
-      }
-      rigtangent[i] = j;
-      j = leftangent[i-1];
-      while (more_left(hull[i], inhull[j], inhull[nxt(j)])) {
-        j = nxt(j);
-      }
-      leftangent[i] = j;
-    }
-    for (int i = 0; i < (int)hull.size(); ++i) {
-      int lef = (i + (int)hull.size() - 1) % hull.size();
-      int rig = (i + 1) % hull.size();
-      if (ccw(hull[lef], inhull[rigtangent[lef]], hull[rig]) < 0 ||
-          ccw(hull[rig], inhull[leftangent[rig]], hull[lef]) > 0)
-        continue;
-      int add = inhull.size();
-      if (leftangent[rig] == rigtangent[lef]) {
-        add = 1;
-      } else if (inhull.size() > 2 && ccw(inhull[0], inhull[1], inhull.back()) != 0) {
-        add = leftangent[rig] - rigtangent[lef];
-        if (add < 0) {
-          add += (int)inhull.size();
+
+    int hull_size = hull.size();
+    for (int i = 0; i < n; i++) {
+        if (in_ch[i]) {
+            result[i] = -1;
+            continue;
         }
-        ++add;
-      }
-      ans[hull[i].id] += add;
+        result[i] = hull_size;
     }
-  }
-  for (int x : ans) {
-    printf("%d\n", x);
-  }
-  return 0;
+
+    vector<point> new_hull;
+
+    for (int i = 2; i < (int)hull.size() - 1; i++) {
+        // if we ignore this point
+        new_hull.clear();
+        new_hull.push_back(hull[i - 2]);
+        new_hull.push_back(hull[i - 1]);
+        int l = mapping[hull[i - 1].idx] + 1;
+        int r = mapping[hull[i + 1].idx];
+        for (int j = l; j <= r; j++) {
+            if (j == mapping[hull[i].idx]) continue;  // skip current point
+            while (new_hull.size() >= 2 && cross(new_hull[new_hull.size() - 2],
+                                                 new_hull[new_hull.size() - 1], points[j]) < 0) {
+                new_hull.pop_back();
+            }
+            new_hull.push_back(points[j]);
+        }
+        // reduce current hull, remove double count for [i - 2, i - 1, i + 1]
+        result[hull[i].idx] = hull_size - 1 + new_hull.size() - 3;
+    }
+
+    for (int i = 0; i < n; i++) {
+        if (result[i] == -1) {
+            for (int j = 0; j < n; j++) {
+                if (points[j].idx == i) {
+                    swap(points[j], points[n - 1]);
+                    break;
+                }
+            }
+            constructHull(n - 1);
+            result[i] = hull.size();
+        }
+        cout << result[i] << endl;
+    }
 }
